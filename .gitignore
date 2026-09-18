@@ -1,0 +1,20 @@
+# Секреты и локальные конфиги (в git никогда не попадают)
+.env
+*.secret.*
+secrets/
+# реальные конфиги Xray с UUID/ключами — только шаблоны коммитим
+xray/config*.json
+!xray/config*.template.json
+vless*.txt
+vless*.conf
+
+# Бэкапы роутера
+backups/
+running-config*
+*.backup
+
+# Служебное
+.DS_Store
+*.swp
+node_modules/
+__pycache__/
