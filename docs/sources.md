@@ -32,7 +32,19 @@
 
 ## Entware / OPKG
 
-- Пакеты: https://bin.entware.net/aarch64-k3.10/ (ветка для KN-1811)
+- **Официальная инструкция (пошагово, проверена 2026-09-19)**: https://support.netcraze.ru/hero-5g/nc-4110/ru/20980-installing-the-entware-repository-on-a-usb-drive.html
+  (netcraze.ru = новый бренд Keenetic; статья «Установка репозитория Entware на USB-накопитель»).
+  Порядок: диск в EXT4 → компонент ОС «Поддержка открытых пакетов» (OPKG) → диск в роутер →
+  в корень раздела папка `install/` с `aarch64-installer.tar.gz` (для KN-1811) →
+  веб: «Менеджер пакетов OPKG» → выбрать накопитель + «Доступ для учетной записи пользователя» →
+  Сохранить (установка идёт автоматически, лог — в Системном журнале).
+  После установки: SSH `root@192.168.1.1`, пароль `keenetic`, порт **222** если установлен
+  компонент «Сервер SSH», иначе **22**; сразу `passwd` и `opkg update`.
+  Техподдержка Entware не консультирует — форум: forum.keenetic.com, раздел «Открытые пакеты OPKG».
+- Производительность Transmission (ext4 без преаллокации, swap, лимиты): https://support.netcraze.ru/hero-5g/nc-4110/ru/43341-maximising-the-performance-of-the-download-station.html
+- ext4 на USB (компонент «Файловая система Ext», форматирование, tune2fs -m 0): https://support.netcraze.ru/hero-5g/nc-4110/ru/21024-using-the-ext4-file-system-on-usb-drives.html
+- Политика доступа Transmission (напрямую/через VPN): https://support.netcraze.ru/hero-5g/nc-4110/ru/50384-how-to-change-an-internet-connection-policy-for-download-station-.html
+- Пакеты: https://bin.entware.net/aarch64-k3.10/ (ветка для KN-1811; там же keenetic/-список)
 - Установщик: https://bin.entware.net/aarch64-k3.10/installer/aarch64-installer.tar.gz
 - Подготовка флешки с macOS: https://github.com/MaxXxaM/keenetic-entware-flash
   (одной командой SWAP+EXT4) или вручную diskutil + e2fsprogs (mkfs.ext4 `-O ^metadata_csum`).
