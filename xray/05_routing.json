@@ -1,0 +1,51 @@
+{
+  "//": "05_routing.json для запасного ядра Xray (XKeen). Структура — по канону Corvus-Malus (routing-обёртка, скоуп inboundTag redirect/tproxy, финальное правило direct). Whitelist-минимум: перечисленные сервисы через proxy, всё остальное напрямую. Геофайлы Xray сознательно не используются (ext:geosite_* не подключены) — при переключении на Xray доустановить через `xkeen -g` и расширить список. Тег proxy соответствует 04_outbounds.template.json. Ад-блок на запасном ядре НЕ работает (осознанный минимализм).",
+  "routing": {
+    "rules": [
+      {
+        "inboundTag": ["redirect", "tproxy"],
+        "outboundTag": "block",
+        "type": "field",
+        "network": "udp",
+        "port": "135, 137, 138, 139"
+      },
+      {
+        "inboundTag": ["redirect", "tproxy"],
+        "outboundTag": "proxy",
+        "type": "field",
+        "domain": [
+          "domain:instagram.com",
+          "domain:cdninstagram.com",
+          "domain:fbcdn.net",
+          "domain:youtube.com",
+          "domain:youtu.be",
+          "domain:googlevideo.com",
+          "domain:ytimg.com",
+          "domain:discord.com",
+          "domain:discordapp.net",
+          "domain:discord.gg",
+          "domain:reddit.com",
+          "domain:redd.it",
+          "domain:redditstatic.com",
+          "domain:twitch.tv",
+          "domain:ttvnw.net",
+          "domain:x.com",
+          "domain:twitter.com",
+          "domain:twimg.com",
+          "domain:tiktok.com",
+          "domain:tiktokcdn.com",
+          "domain:openai.com",
+          "domain:chatgpt.com",
+          "domain:anthropic.com",
+          "domain:claude.ai",
+          "domain:gemini.google.com"
+        ]
+      },
+      {
+        "inboundTag": ["redirect", "tproxy"],
+        "outboundTag": "direct",
+        "type": "field"
+      }
+    ]
+  }
+}

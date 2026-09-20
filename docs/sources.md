@@ -1,6 +1,6 @@
 # Источники и инструменты
 
-Проверенные ссылки. Порядок: официальное → XKeen → агентские инструменты → сообщество.
+Проверенные ссылки. Порядок: официальное → XKeen → Entware/OPKG → сообщество.
 
 ## Официальные (Keenetic)
 
@@ -9,8 +9,6 @@
   (пример: подготовка USB-диска как хранилища и SWAP)
 - docs.keenetic.com — веб-документация интерфейса
 - keenetic.com — продуктовые страницы (защита от ботов: парсится плохо, лучше браузер)
-- RCI API: JSON-зеркало CLI-дерева поверх HTTP (`/rci/...`). Публичной полной доки нет —
-  практичная шпаргалка: https://github.com/salatmaster/keenetic-mcp/blob/main/docs/rci-api.md
 
 ## VPN: XKeen / Xray / VLESS
 
@@ -22,13 +20,6 @@
 - https://github.com/zxc-rv/XKeen-UI — веб-панель управления XKeen (опционально).
 - Гео-базы: https://github.com/jameszeroX/zkeen-domains (zkeen.dat), https://github.com/jameszeroX/zkeen-ip (zkeenip.dat), альтернатива Re:filter https://github.com/1andrevich/Re-filter-lists
 - Генератор конфигов: https://github.com/Corvus-Malus/XKeen-Config-Generator
-
-## Агентский доступ / автоматизация
-
-- **https://github.com/salatmaster/keenetic-mcp** — MCP-сервер поверх RCI API + 4 скилла
-  (keenetic-rci, keenetic-safe-changes, keenetic-segments, keenetic-troubleshoot).
-  Проверен на Ultra KN-1811 / KeeneticOS 5.1.3. Ничего не ставит на роутер; пароль — в macOS Keychain;
-  изменения не сохраняются без явного `save_config`. Запуск: `npx -y keenetic-mcp`.
 
 ## Entware / OPKG
 

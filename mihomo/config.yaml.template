@@ -1,0 +1,220 @@
+#######################################################################################################
+# Mihomo под XKeen 2.0 — ШАБЛОН (плейсхолдеры <...> заменить при деплое на роутер).
+# Реальный config.yaml с UUID/ключами Reality живёт ТОЛЬКО на роутере: /opt/etc/mihomo/config.yaml.
+# Основа: https://github.com/zxc-rv/assets/blob/main/config_templates/mihomo/config.yaml
+# Изменения против zxc-rv (по итогам review 2026-09-19, см. docs/specs/001-vpn-mihomo/review-log.md):
+#   - добавлен rule-provider youtube@domain (в оригинале правило есть, провайдера нет);
+#   - ВЫРЕЗАНЫ CDN-правила (Cloudflare/Akamai/AWS/DO/OVH/...) — они гнали массу не-заблокированного
+#     трафика (в т.ч. RU-сайты за Cloudflare) через VPS, что противоречит whitelist-логике;
+#   - добавлен secret на external-controller (панель доступна всем LAN-сегментам);
+#   - google/github оставлены с default PASS (DIRECT) — переключаются вручную из панели при нужде;
+#   - Fallback = [reality-home, DIRECT]: при недоступности VPS whitelist-трафик автоматически
+#     уходит напрямую (fail-open, решение владельца 2026-09-19), при восстановлении — обратно.
+# Логика: whitelist — динамические rule-sets (автообновление 24 ч) + свои DOMAIN-SUFFIX;
+#         всё вне списков — напрямую (MATCH,DIRECT). Игры/UDP вне списков не затрагиваются:
+#         XKeen перехватывает только порты 80/443 (TCP+UDP).
+# Заменить: <VPS_HOST>, <UUID>, <PBK>, <SID>, <SNI>, <PANEL_SECRET>
+# Поля из vless://-ссылки: server=<host>, uuid=<UUID>, pbk=<PBK>, sid=<SID>, sni=<SNI>, fp=chrome,
+# flow=xtls-rprx-vision. Параметр spx (spiderX) в mihomo не используется.
+#######################################################################################################
+
+log-level: warning          # info — для отладки при первичной настройке
+allow-lan: true
+redir-port: 5000            # стандартные порты XKeen (TCP → REDIRECT)
+tproxy-port: 5001           # стандартные порты XKeen (UDP → TProxy)
+routing-mark: 255           # служебная метка XKeen (Entware bypass); сверить с `xkeen -pbr codes`
+find-process-mode: off
+unified-delay: true
+external-controller: 0.0.0.0:9090
+secret: <PANEL_SECRET>      # панель zashboard: http://192.168.1.1:9090/ui (доступна всему сегменту Home)
+external-ui: zashboard
+external-ui-url: https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip
+                            # если GitHub недоступен с роутера — залить dist.zip в /opt/etc/mihomo/zashboard вручную
+
+sniffer:                    # домен определяется из SNI/Host — DNS клиентов не трогаем
+  enable: true
+  sniff:
+    HTTP: { ports: [80, 8080] }
+    TLS: { ports: [443, 8443] }
+    QUIC: { ports: [443, 8443] }
+  skip-dst-address: [rule-set:telegram@ipcidr]  # синтаксис проверить на `xkeen -mtest`; при ошибке — убрать
+
+anchors:
+  a1: &domain { type: http, format: mrs, behavior: domain, interval: 86400 }
+  a2: &ipcidr { type: http, format: mrs, behavior: ipcidr, interval: 86400 }
+  a3: &classical { type: http, format: text, behavior: classical, interval: 86400 }
+  a4: &inline { type: inline, behavior: classical }
+
+proxies:
+  - name: reality-home
+    type: vless
+    server: <VPS_HOST>
+    port: 443
+    udp: true
+    uuid: <UUID>
+    flow: xtls-rprx-vision
+    tls: true
+    servername: <SNI>
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: <PBK>
+      short-id: <SID>
+
+proxy-groups:
+  - name: Заблок. сервисы
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Reject.png
+    include-all: true
+    proxies: [Fallback, Fastest]
+
+  - name: Fallback
+    type: fallback
+    url: https://www.gstatic.com/generate_204
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Available.png
+    interval: 60
+    max-failed-times: 3
+    hidden: true
+    proxies: [reality-home, DIRECT] # VPS недоступен (3 провала health-check) → whitelist уходит напрямую (fail-open)
+    # NB: include-all здесь НЕ используем — он дописывает прокси ПОСЛЕ явного списка,
+    # DIRECT оказался бы первым кандидатом и fallback всегда выбирал бы его.
+
+  - name: Fastest
+    type: url-test
+    url: https://www.gstatic.com/generate_204
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Auto.png
+    interval: 300
+    max-failed-times: 3
+    hidden: true
+    include-all: true
+
+  - name: YouTube
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/YouTube.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Discord
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Discord.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Twitch
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Twitch.png
+    include-all: true
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # осознанно DIRECT: ключевые домены Twitch проксируются OR-правилом ниже
+
+  - name: Reddit
+    type: select
+    icon: https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT] # Reddit заблокирован в РФ → через прокси
+
+  - name: Meta
+    type: select
+    icon: https://github.com/zxc-rv/assets/raw/main/group-icons/meta.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Spotify
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Spotify.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Speedtest
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Speedtest.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Telegram
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Telegram.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Steam
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Steam.png
+    include-all: true
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # осознанно DIRECT: игры не через VPN
+
+  - name: Google
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Google_Search.png
+    include-all: true
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # default DIRECT: Google не заблокирован
+
+  - name: GitHub
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/GitHub.png
+    include-all: true
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # default DIRECT
+
+  - name: AI
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bot.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: Twitter
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Twitter.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+  - name: TikTok
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TikTok.png
+    include-all: true
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+
+rule-providers:
+  adlist@domain: { <<: *domain, url: https://github.com/zxc-rv/ad-filter/releases/latest/download/adlist.mrs }
+  category-ai@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs }
+  discord@classical: { <<: *classical, url: https://github.com/zxc-rv/assets/raw/main/rules/discord.list }
+  github@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs }
+  google@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs }
+  meta@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/meta.mrs }
+  meta@ipcidr: { <<: *ipcidr, url: https://github.com/zxc-rv/zkeenip-rulesets/releases/latest/download/meta@ipcidr.mrs }
+  refilter@domain: { <<: *domain, url: https://github.com/legiz-ru/mihomo-rule-sets/raw/main/re-filter/domain-rule.mrs }
+  reddit@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/reddit.mrs }
+  spotify@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/spotify.mrs }
+  steam@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/steam.mrs }
+  speedtest@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/speedtest.mrs }
+  telegram@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs }
+  telegram@ipcidr: { <<: *ipcidr, url: https://github.com/zxc-rv/zkeenip-rulesets/releases/latest/download/telegram@ipcidr.mrs }
+  twitch@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/twitch.mrs }
+  twitter@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/twitter.mrs }
+  tiktok@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs }
+  youtube@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs }
+  quic@inline: { <<: *inline, payload: ["AND,((DST-PORT,443),(NETWORK,UDP))"] }
+  user@classical: # СВОИ ПРАВИЛА — личные домены. Плейсхолдер example.invalid не мешает; свои домены дописывать строками ниже
+    <<: *inline
+    payload:
+      - DOMAIN-SUFFIX,example.invalid
+      # - DOMAIN-SUFFIX,example.org
+      # - DOMAIN-SUFFIX,my-service.com
+
+rules:
+  - RULE-SET,adlist@domain,REJECT # Блокировка рекламы (отключите при проблемах с сервисами)
+  - RULE-SET,quic@inline,REJECT # Блокировка QUIC (UDP 443) — стабилизирует TCP-прокси; убрать, если помешает
+  - OR,((DOMAIN-SUFFIX,gql.twitch.tv),(DOMAIN-SUFFIX,usher.ttvnw.net)),Заблок. сервисы # Разблокировка качества Twitch (может вызвать рекламу)
+  - RULE-SET,category-ai@domain,AI
+  - RULE-SET,steam@domain,Steam
+  - RULE-SET,spotify@domain,Spotify
+  - RULE-SET,reddit@domain,Reddit
+  - RULE-SET,youtube@domain,YouTube
+  - RULE-SET,twitch@domain,Twitch
+  - RULE-SET,twitter@domain,Twitter
+  - RULE-SET,tiktok@domain,TikTok
+  - RULE-SET,discord@classical,Discord
+  - RULE-SET,speedtest@domain,Speedtest
+  - OR,((RULE-SET,meta@domain),(RULE-SET,meta@ipcidr,no-resolve)),Meta
+  - OR,((RULE-SET,telegram@domain),(RULE-SET,telegram@ipcidr,no-resolve)),Telegram
+  - OR,((RULE-SET,refilter@domain),(RULE-SET,user@classical)),Заблок. сервисы
+  - RULE-SET,github@domain,GitHub
+  - RULE-SET,google@domain,Google
+  - MATCH,DIRECT # Всё вне списков (включая игры) — напрямую через провайдера

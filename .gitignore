@@ -3,9 +3,13 @@
 *.secret.*
 *.netrc
 secrets/
+.ssh/
 # реальные конфиги Xray с UUID/ключами — только шаблоны коммитим
 xray/config*.json
 !xray/config*.template.json
+xray/04_outbounds.json
+mihomo/config*.yaml
+!mihomo/config*.yaml.template
 vless*.txt
 vless*.conf
 

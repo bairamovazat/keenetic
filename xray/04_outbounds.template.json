@@ -1,0 +1,43 @@
+{
+  "//": "ШАБЛОН 04_outbounds.json для запасного ядра Xray (XKeen). Реальный файл только на роутере: /opt/etc/xray/configs/04_outbounds.json. Заменить <VPS_HOST>, <UUID>, <SNI>, <PBK>, <SID>. Соответствует vless:// с type=tcp, security=reality, flow=xtls-rprx-vision, fp=chrome, spx=/ (перенесён в spiderX). Тег proxy используется правилами 05_routing.json; blackhole обслуживает outboundTag block.",
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<VPS_HOST>",
+            "port": 443,
+            "users": [
+              {
+                "id": "<UUID>",
+                "flow": "xtls-rprx-vision",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "<SNI>",
+          "fingerprint": "chrome",
+          "publicKey": "<PBK>",
+          "shortId": "<SID>",
+          "spiderX": "/"
+        }
+      }
+    }
+  ]
+}

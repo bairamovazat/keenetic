@@ -1,5 +1,11 @@
 # План: XKeen (Xray) + VLESS на Keenetic Ultra KN-1811
 
+> ⚠️ **УСТАРЕЛ (2026-09-19).** Актуальное решение: ядро **Mihomo** (Xray — запасное),
+> whitelist-роутинг через динамические rule-sets, шаблон `mihomo/config.yaml.template`,
+> решения — в `AGENTS.md` («Решения»), хроника валидаций — `docs/specs/001-vpn-mihomo/review-log.md`,
+> **инструкция внедрения — `docs/deploy-vpn.md`**.
+> Разделы ниже (компоненты OS, USB, Entware) всё ещё полезны как справка.
+
 Основной VPN и сплит трафика: управление — пользовательские политики Keenetic +
 IPSET/geosite поверх основной сети.
 
