@@ -1,0 +1,11 @@
+# US-пул: домены, которые идут через US-ноду (reality-us) вне category-ai.
+# Источник истины — этот файл в репо; рабочая копия: /opt/etc/mihomo/us-pool.list на роутере.
+# Правка: строка здесь → scp на роутер (или vi по SSH) → zashboard: Rule Providers →
+# us-pool@classical → «обновить» (hot-reload, без рестарта ядра). Спека: docs/specs/002-us-ai-routing/.
+# NB: правило стоит ПОСЛЕ adlist REJECT — домен из рекламного списка сюда дописывать бессмысленно.
+DOMAIN-SUFFIX,example.invalid
+# OpenAI/ChatGPT: платёжный флоу Stripe (2026-10-17) — Stripe должен видеть ту же страну,
+# что и сессия OpenAI; иначе фрод-детекция выдаёт странный набор карт (UnionPay/Discover вместо Visa/MC)
+DOMAIN-SUFFIX,stripe.com
+DOMAIN-SUFFIX,stripecdn.com
+DOMAIN-SUFFIX,stripe.network
