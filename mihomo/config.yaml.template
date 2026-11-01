@@ -18,6 +18,9 @@
 #   - 2026-11-01, этап 3: NL-нода ПЕРЕСОЗДАНА (TimeWeb) и возвращена ТОЛЬКО как аварийный
 #     fallback группы Meta/Instagram: [reality-kz, reality-nl]. Для всего остального
 #     действует схема этапа 2 — строго KZ, fail-closed (AI/платежи — особенно).
+#     Google-группа переведена на DIRECT (жилой RU IP): Anthropic не видит сеть Google,
+#     а регистрации Google-аккаунтов с datacenter-IP получают метку «ферма». YouTube —
+#     отдельная группа и остаётся на KZ (в РФ заблокирован).
 # Нюанс KZ-ноды: fp из ссылки (firefox) в mihomo НЕ работает (HelloFirefox_120 без
 # X25519MLKEM768 — utls v1.8.7), поэтому обязательно: client-fingerprint: chrome +
 # reality-opts.support-x25519mlkem768: true. Причина: Xray-core на 3x-ui (наш сервер
@@ -152,10 +155,10 @@ proxy-groups:
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Steam.png
     proxies: [reality-kz]
 
-  - name: Google
-    type: select
+  - name: Google # 2026-11-01: напрямую (жилой RU IP) — Anthropic сетью Google не видит; регистрация
+    type: select     # Google-аккаунта с datacenter-IP = метка «ферма аккаунтов». YouTube — отдельная группа (KZ).
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Google_Search.png
-    proxies: [reality-kz]
+    proxies: [DIRECT]
 
   - name: GitHub
     type: select

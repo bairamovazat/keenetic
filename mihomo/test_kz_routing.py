@@ -111,7 +111,10 @@ class RoutingContract(unittest.TestCase):
             if name == 'Meta':
                 continue
             self.assertEqual(group['type'], 'select', name)
-            self.assertEqual(group['proxies'], ['reality-kz'], name)
+            # Google — DIRECT с 2026-11-01 (жилой IP для экосистемы Google; Anthropic её не видит),
+            # все остальные сервисы — строго KZ.
+            expected = ['DIRECT'] if name == 'Google' else ['reality-kz']
+            self.assertEqual(group['proxies'], expected, name)
             for key in ('include-all', 'include-all-proxies', 'include-all-providers', 'use'):
                 self.assertFalse(group.get(key), (name, key))
         self.assertNotIn('type: url-test', Path(os.getenv('KZ_CONFIG', ROOT / 'config.yaml.template')).read_text())

@@ -43,6 +43,10 @@
   (закрыта kz-pool). Рекомендовано: стабильный один exit, логины/OAuth не делать при
   падениях, самопроверка ip-check.leeguoo.com + claude.ai/cdn-cgi/trace. kz-pool: 39 записей,
   md5 репо = роутер. Откат этапа: `backups/20261101-kz-node-replace/config.yaml.1node.bak-*`.
+  Дополнение (вечер 2026-11-01): группа Google переведена на **DIRECT** (жилой RU IP) —
+  Anthropic сеть Google через OAuth не видит (только e-mail/имя/ID), а создания Google-аккаунтов
+  с datacenter-IP получают у Google метку «ферма аккаунтов» (риск замка). YouTube — отдельная
+  группа, осталась на KZ (в РФ заблокирован). Откат: группа Google → [reality-kz].
 - **2026-11-01 (этап 2): однонодовая схема — всё проксируемое строго через KZ; NL удалена навсегда.**
   `reality-home` (NL) удалена из Mihomo и из конфига запасного ядра Xray (`04_outbounds.json`
   роутера теперь ведёт на KZ, chrome+ML-KEM, проверено живьём); US-VM и NL-VM гасит владелец.
