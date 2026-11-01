@@ -38,3 +38,16 @@ DOMAIN,servd-anthropic-website.b-cdn.net
 # Документированные intake-хосты Claude Code, не весь Datadog
 DOMAIN,http-intake.logs.us5.datadoghq.com
 DOMAIN,browser-intake-us5-datadoghq.com
+# Экосистема Claude (аудит 2026-11-01 по xiaolai/anthropic-claude-surge-rules-set):
+# поддержка (Intercom), ошибки (Sentry), фичефлаги (GrowthBook), аналитика (Fathom), MCP.
+# NB: sentry.io/intercom* — общие сторонние сервисы: при падении KZ их телеметрия/виджеты
+# ломаются и на ДРУГИХ сайтах — осознанный fail-closed по решению владельца 2026-11-01.
+DOMAIN-SUFFIX,modelcontextprotocol.io
+DOMAIN-SUFFIX,intercom.io
+DOMAIN-SUFFIX,intercomcdn.com
+DOMAIN-SUFFIX,sentry.io
+DOMAIN,cdn.growthbook.io
+DOMAIN,cdn.usefathom.com
+# Sift — fraud-SDK мобильных приложений Claude: отправляет адреса интерфейсов и публичный IP
+# (аудит B1anYu/claude-telemetry-audit) — чтобы телеметрия видела ту же страну, что сессия.
+DOMAIN-SUFFIX,sift.com

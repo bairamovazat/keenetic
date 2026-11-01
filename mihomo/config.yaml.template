@@ -15,6 +15,9 @@
 #       • .kz-домены → reality-kz (правило после adlist — реклама режется раньше);
 #       • сервисные группы одновариантные [reality-kz]: выбора нод нет, группы — только
 #         метки сервисов для zashboard; Fallback/Fastest/VK-группы удалены.
+#   - 2026-11-01, этап 3: NL-нода ПЕРЕСОЗДАНА (TimeWeb) и возвращена ТОЛЬКО как аварийный
+#     fallback группы Meta/Instagram: [reality-kz, reality-nl]. Для всего остального
+#     действует схема этапа 2 — строго KZ, fail-closed (AI/платежи — особенно).
 # Нюанс KZ-ноды: fp из ссылки (firefox) в mihomo НЕ работает (HelloFirefox_120 без
 # X25519MLKEM768 — utls v1.8.7), поэтому обязательно: client-fingerprint: chrome +
 # reality-opts.support-x25519mlkem768: true. Причина: Xray-core на 3x-ui (наш сервер
@@ -22,7 +25,9 @@
 # с v26.9.8 — строгий разрыв; mihomo чинить не будет (MetaCubeX/mihomo#3193, not planned).
 # Опция mihomo-специфична, в vless://-ссылках не передаётся — вписывать руками.
 # Подробнее: xray-problem.md (в репо).
-# Заменить: <KZ_HOST>, <KZ_UUID>, <KZ_PBK>, <KZ_SID>, <KZ_SNI> (нода reality-kz), <PANEL_SECRET>.
+# Заменить: <KZ_HOST>, <KZ_UUID>, <KZ_PBK>, <KZ_SID>, <KZ_SNI> (нода reality-kz),
+#         <NL_HOST>, <NL_UUID>, <NL_PBK>, <NL_SID>, <NL_SNI> (reality-nl, только Meta-fallback),
+#         <PANEL_SECRET>.
 # Поля из vless://-ссылки (reality): server=<host>, uuid=<UUID>, pbk=<PBK>, sid=<SID>,
 # sni=<SNI>, flow=xtls-rprx-vision. fp берём chrome (НЕ firefox из ссылки) и обязательно
 # support-x25519mlkem768: true. Параметр spx (spiderX) в mihomo не используется.
@@ -56,7 +61,7 @@ anchors:
   a4: &inline { type: inline, behavior: classical }
 
 proxies:
-  # Единственная нода (2026-11-01); строго chrome + support-x25519mlkem768 (см. шапку).
+  # Основная нода; строго chrome + support-x25519mlkem768 (см. шапку).
   - name: reality-kz
     type: vless
     server: <KZ_HOST>
@@ -70,6 +75,23 @@ proxies:
     reality-opts:
       public-key: <KZ_PBK>
       short-id: <KZ_SID>
+      support-x25519mlkem768: true
+
+  # NL-нода (TimeWeb, пересоздана 2026-11-01): ТОЛЬКО аварийный fallback группы Meta
+  # (Instagram). Те же требования нового Xray-core: chrome + support-x25519mlkem768.
+  - name: reality-nl
+    type: vless
+    server: <NL_HOST>
+    port: 443
+    udp: true
+    uuid: <NL_UUID>
+    flow: xtls-rprx-vision
+    tls: true
+    servername: <NL_SNI>
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: <NL_PBK>
+      short-id: <NL_SID>
       support-x25519mlkem768: true
 
 proxy-groups:
@@ -100,10 +122,15 @@ proxy-groups:
     icon: https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
     proxies: [reality-kz]
 
+  # Instagram/Meta — ЕДИНСТВЕННАЯ группа с fallback (владелец, 2026-11-01): KZ упала
+  # (3 провала health-check с интервалом 60 с) → NL; восстановление KZ → возврат (~минута).
   - name: Meta
-    type: select
+    type: fallback
+    url: https://www.gstatic.com/generate_204
     icon: https://github.com/zxc-rv/assets/raw/main/group-icons/meta.png
-    proxies: [reality-kz]
+    interval: 60
+    max-failed-times: 3
+    proxies: [reality-kz, reality-nl]
 
   - name: Spotify
     type: select
@@ -187,6 +214,8 @@ rules:
   - DOMAIN-SUFFIX,kimi.ai,DIRECT # Kimi напрямую, минуя AI/KZ (решение владельца 2026-11-01)
   - RULE-SET,kz-pool@classical,AI # сервисные домены KZ-only, включая платежный антифрод
   - RULE-SET,category-ai@domain,AI
+  - IP-CIDR,160.79.104.0/21,AI,no-resolve # собственные диапазоны Anthropic (AS399358): трафик к IP без SNI тоже строго в KZ
+  - IP-CIDR,2607:6bc0::/48,AI,no-resolve # IPv6-диапазон Anthropic
   - RULE-SET,adlist@domain,REJECT # После AI/платежей/верификации
   - DOMAIN-SUFFIX,kz,reality-kz # все домены .kz — через KZ (2026-11-01); после adlist: реклама .kz режется раньше
   - OR,((DOMAIN-SUFFIX,gql.twitch.tv),(DOMAIN-SUFFIX,usher.ttvnw.net)),Заблок. сервисы # Разблокировка качества Twitch (может вызвать рекламу)

@@ -15,14 +15,34 @@
 
 1. **VPN через VLESS**: XKeen 2.0 (форк JamesZero) на роутере, режим **Hybrid** — основной способ
    обхода блокировок и сплита трафика. Ядро: **Mihomo — основное**, Xray — запасное
-   (переключение `xkeen -mihomo` / `xkeen -xray`; с 2026-11-01 оба ведут на единственную
-   KZ-ноду). Схема однонодовая: списки сервисов + `.kz` — через KZ, всё вне списков — напрямую.
+   (переключение `xkeen -mihomo` / `xkeen -xray`; оба ведут на KZ-ноду). Основная нода одна
+   (KZ); NL — только аварийный fallback Instagram/Meta. Списки сервисов + `.kz` — через KZ,
+   всё вне списков — напрямую.
 2. **Сетевое хранилище**: SMB-шара на USB-диске.
 3. **Торрент-клиент**: Transmission в Entware.
 4. Прошивка/обновление KeeneticOS, управление компонентами OPKG, тонкие кастомизации, доступ по SSH.
 
 ## Решения (что делаем)
 
+- **2026-11-01 (этап 3): NL возвращена только как fallback Instagram/Meta; усиление KZ-only для
+  Anthropic.** NL-нода пересоздана владельцем (TimeWeb, `reality-nl`, chrome+ML-KEM как у KZ,
+  проверена: egress loc=NL/AMS) и включена ТОЛЬКО в группу Meta как fallback
+  `[reality-kz, reality-nl]`: KZ упала (3 провала × 60 с) → Instagram через NL; всё остальное —
+  по-прежнему строго KZ, fail-closed. Anthropic-гарантии усилены (задание владельца): kz-pool
+  дополнен экосистемой Claude (sentry.io, intercom.io/intercomcdn.com, cdn.growthbook.io,
+  cdn.usefathom.com, modelcontextprotocol.io, sift.com — fraud-SDK мобильного приложения
+  Claude шлёт Sift адреса интерфейсов и публичный IP); добавлены IP-правила на собственные
+  диапазоны Anthropic AS399358 (`160.79.104.0/21`, `2607:6bc0::/48` → AI, no-resolve) —
+  трафик к IP без SNI тоже в KZ. Источник аудита: xiaolai/anthropic-claude-surge-rules-set,
+  B1anYu/claude-telemetry-audit. Исследование каналов проверки IP Anthropic (окт. волна
+  банов РФ/ГК): QUIC — глобально REJECT (браузер уходит на TCP через прокси); WebSocket —
+  TCP 443, перехватывается; IPv6-утечка невозможна (провайдер не выдаёт v6; диапазон
+  Anthropic всё равно прикрыт IP-CIDR6); WebRTC/STUN (UDP≠443, ходит напрямую) — канал
+  теоретический, публичных подтверждений использования Anthropic нет, лечится на стороне
+  браузера; реальный вектор — таймзона/язык клиента vs exit-страна и телеметрия
+  (закрыта kz-pool). Рекомендовано: стабильный один exit, логины/OAuth не делать при
+  падениях, самопроверка ip-check.leeguoo.com + claude.ai/cdn-cgi/trace. kz-pool: 39 записей,
+  md5 репо = роутер. Откат этапа: `backups/20261101-kz-node-replace/config.yaml.1node.bak-*`.
 - **2026-11-01 (этап 2): однонодовая схема — всё проксируемое строго через KZ; NL удалена навсегда.**
   `reality-home` (NL) удалена из Mihomo и из конфига запасного ядра Xray (`04_outbounds.json`
   роутера теперь ведёт на KZ, chrome+ML-KEM, проверено живьём); US-VM и NL-VM гасит владелец.
