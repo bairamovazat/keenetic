@@ -1,4 +1,5 @@
-# US-пул: домены, которые идут через US-ноду (reality-us) вне category-ai.
+# ИСТОРИЧЕСКИЙ СНИМОК 002, с 003 не используется. Действующий список: kz-pool.list.
+# US-пул: домены, которые шли через US-ноду (reality-us) вне category-ai.
 # Источник истины — этот файл в репо; рабочая копия: /opt/etc/mihomo/us-pool.list на роутере.
 # Правка: строка здесь → scp на роутер (или vi по SSH) → zashboard: Rule Providers →
 # us-pool@classical → «обновить» (hot-reload, без рестарта ядра). Спека: docs/specs/002-us-ai-routing/.
@@ -9,3 +10,25 @@ DOMAIN-SUFFIX,example.invalid
 DOMAIN-SUFFIX,stripe.com
 DOMAIN-SUFFIX,stripecdn.com
 DOMAIN-SUFFIX,stripe.network
+# Anthropic/Claude и верификация Persona (2026-10-30); включая все поддомены.
+# Источники и проверки: docs/specs/002-us-ai-routing/anthropic-persona.md
+DOMAIN-SUFFIX,withpersona.com
+DOMAIN-SUFFIX,ant.dev
+DOMAIN-SUFFIX,anthropic.com
+DOMAIN-SUFFIX,anthropic.team
+DOMAIN-SUFFIX,antspace.dev
+DOMAIN-SUFFIX,chatbotclaude.com
+DOMAIN-SUFFIX,clau.de
+DOMAIN-SUFFIX,claude.ai
+DOMAIN-SUFFIX,claude.app
+DOMAIN-SUFFIX,claude.com
+DOMAIN-SUFFIX,claude.dev
+DOMAIN-SUFFIX,claude.new
+DOMAIN-SUFFIX,claude.site
+DOMAIN-SUFFIX,claudeacademy.com
+DOMAIN-SUFFIX,claudemcpclient.com
+DOMAIN-SUFFIX,claudemcpcontent.com
+DOMAIN-SUFFIX,claudepages.dev
+DOMAIN-SUFFIX,claudestudio.com
+DOMAIN-SUFFIX,claudeusercontent.com
+DOMAIN,servd-anthropic-website.b-cdn.net

@@ -1,0 +1,40 @@
+# KZ-only: AI, платежи и верификация. Источник истины — этот файл.
+# Роутер: /opt/etc/mihomo/kz-pool.list; после копирования reload kz-pool@classical.
+# Исследование/ограничения: docs/specs/003-kz-ai-routing/research.md.
+# Суффиксы включают сам домен и все поддомены. QUIC отвергается раньше этого списка.
+# Stripe / Link / антифрод (официальные Stripe IPs/CSP и v2fly Stripe)
+DOMAIN-SUFFIX,stripe.com
+DOMAIN-SUFFIX,stripecdn.com
+DOMAIN-SUFFIX,stripe.network
+DOMAIN-SUFFIX,stripe.dev
+DOMAIN-SUFFIX,stripe.events
+DOMAIN-SUFFIX,stripe.global
+DOMAIN-SUFFIX,link.com
+DOMAIN-SUFFIX,hcaptcha.com
+# Persona: identity/business; Yoti: age assurance (официальная справка Claude)
+DOMAIN-SUFFIX,withpersona.com
+DOMAIN-SUFFIX,frompersona.com
+DOMAIN-SUFFIX,yoti.com
+# Anthropic/Claude: явное покрытие независимо от динамического category-ai
+DOMAIN-SUFFIX,ant.dev
+DOMAIN-SUFFIX,anthropic.com
+DOMAIN-SUFFIX,anthropic.team
+DOMAIN-SUFFIX,antspace.dev
+DOMAIN-SUFFIX,chatbotclaude.com
+DOMAIN-SUFFIX,clau.de
+DOMAIN-SUFFIX,claude.ai
+DOMAIN-SUFFIX,claude.app
+DOMAIN-SUFFIX,claude.com
+DOMAIN-SUFFIX,claude.dev
+DOMAIN-SUFFIX,claude.new
+DOMAIN-SUFFIX,claude.site
+DOMAIN-SUFFIX,claudeacademy.com
+DOMAIN-SUFFIX,claudemcpclient.com
+DOMAIN-SUFFIX,claudemcpcontent.com
+DOMAIN-SUFFIX,claudepages.dev
+DOMAIN-SUFFIX,claudestudio.com
+DOMAIN-SUFFIX,claudeusercontent.com
+DOMAIN,servd-anthropic-website.b-cdn.net
+# Документированные intake-хосты Claude Code, не весь Datadog
+DOMAIN,http-intake.logs.us5.datadoghq.com
+DOMAIN,browser-intake-us5-datadoghq.com

@@ -44,10 +44,33 @@
 |---|---|
 | Веб-интерфейс | Работает (HTTP 200), вход по admin |
 | SSH (Keenetic, 222) | Закрыт — компонент «Сервер SSH» не установлен |
-| SSH (Entware, 22) | Работает, dropbear; вход по ключу `.ssh/keenetic-agent-2026-09-19`, ключи на роутере в `/opt/etc/dropbear/authorized_keys` |
+| SSH (Entware, 22) | Работает, dropbear; вход по ключу `.ssh/keenetic-agent-2026-09-19`, ключи на роутере в `/opt/etc/dropbear/authorized_keys`. **Инцидент 2026-10-15**: dropbear не слушал 22 (при живых Entware/mihomo; порты 222/2222 тоже закрыты) — вылечен перезагрузкой роутера (автозагрузка подняла). Причины не выяснялись; если повторится — смотреть `/opt/etc/init.d/S51dropbear` и стартовые логи Entware |
 | Entware/OPKG | Установлен на флешке Kingston DT 3.0 32 ГБ (swap 2 ГБ + ext4 ENTWARE, см. docs/entware-opkg.md) |
-| XKeen/Xray | **Установлен 2026-09-20**: XKeen 2.0 (форк JamesZero), ядра Mihomo (рабочее) + Xray 26.3.27 (запасное), режим Hybrid, автозагрузка. Перехват только TCP/UDP 80,443 (`port_proxying.lst` — пустой файл = ВСЕ порты, см. AGENTS.md «Решения»). Конфиги: `/opt/etc/mihomo/config.yaml`, `/opt/etc/xray/configs/`. Панель zashboard: 192.168.1.1:9090/ui. **Контрольная перезагрузка пройдена 2026-09-20** (автозапуск, правила, все 20 rule-providers загружены, VPN работает) |
+| XKeen/Xray | **Установлен 2026-09-20**: XKeen 2.0 (форк JamesZero), ядра Mihomo (рабочее) + Xray 26.3.27 (запасное), режим Hybrid, автозагрузка. Перехват только TCP/UDP 80,443 (`port_proxying.lst` — пустой файл = ВСЕ порты, см. AGENTS.md «Решения»). Конфиги: `/opt/etc/mihomo/config.yaml`, `/opt/etc/xray/configs/`. Панель zashboard: 192.168.1.1:9090/ui. **Контрольная перезагрузка пройдена 2026-09-20** (автозапуск, правила, все 20 rule-providers загружены, VPN работает). **2026-10-15: сплит US/NL** — прокси `reality-us` + группа `US-Fallback`, AI-пул через US (спека 002), провайдеров стало 21 (+`us-pool.list`) |
 | USB-накопитель | Флешка Kingston DT 3.0 32 ГБ (Entware + swap), сектора good (DiskGenius) |
+
+## Актуальное состояние VPN (2026-10-30)
+
+Обновление 2026-11-01 11:41 МСК: добавлена группа `VK` (fallback
+`[reality-kz, DIRECT]`) и правило `DOMAIN-SUFFIX,cloud.vk.kz,VK` (до adlist).
+`vk.kz` без A-записей; vk.com не маршрутизируется. Живые проверки: KZ-цепочка
+и DIRECT-цепочка обе HTTP 200, отказ/возврат протестированы принудительными
+проверками группы. Естественный failover ~3 мин. config.yaml SHA256
+`51ae321446d8a066720052187e67bd1ef334b7964782fbd38850bdacdeac26c3`.
+
+Обновление 21:19 МСК: Google, YouTube и Meta (включая Facebook) также выбраны
+через reality-kz; проверены живые TLS/цепочки шести хостов. Правило Google
+поставлено выше refilter. Прежние варианты сохранены для ручного переключения.
+Подробнее и возврат: `docs/kz-google-meta.md`.
+
+Актуализация VPN 2026-10-30 21:08 МСК: Mihomo v1.19.31, AI → reality-kz
+(89.126.205.135, KZ/Almaty), без fallback/DIRECT; reality-us и US-Fallback удалены.
+21 провайдер загружен, kz-pool@classical — 32 правила. YouTube/Meta → reality-home.
+Полный hot-reload через API без рестарта ядра (PID 5502 сохранён). Проверены
+10 HTTPS-хостов, HTTP/80, отказ KZ и восстановление; при отказе KZ NL работает.
+Бэкап: `backups/20261030-kz-ai/`, на роутере `/opt/backups/20261030-kz-ai/`.
+Порты перехвата 80/443 и DNS не менялись; IPv6 default route при проверке отсутствовал.
+Текущая схема/ограничения: `docs/specs/003-kz-ai-routing/` (заменяет US-схему выше).
 
 ## Провайдер: Ufanet
 
