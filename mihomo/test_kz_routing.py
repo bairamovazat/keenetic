@@ -1,6 +1,11 @@
-"""Контракт 003 T1–T5. Запуск: python3 -m unittest discover -s mihomo -p 'test_*.py'."""
+"""Контракт конфигурации (003 + однонодовая схема 2026-11-01).
+Запуск: python3 -m unittest discover -s mihomo -p 'test_*.py'.
+Рабочий конфиг роутера проверять так:
+  KZ_CONFIG=<файл> python3 -m unittest discover -s mihomo -p 'test_*.py'
+"""
 import os
 from pathlib import Path
+import re
 import unittest
 
 import yaml
@@ -63,57 +68,49 @@ class RoutingContract(unittest.TestCase):
 
     def test_priority_and_references(self):
         rules = self.config['rules']
+        # Порядок: QUIC REJECT → kimi.ai DIRECT → kz-pool AI → category-ai AI →
+        # adlist REJECT → .kz через KZ (после adlist: реклама .kz режется раньше) → сервисы.
         self.assertEqual(rules[:6], ['RULE-SET,quic@inline,REJECT',
-                                    'DOMAIN-SUFFIX,kimi.ai,DIRECT',
-                                    'RULE-SET,kz-pool@classical,AI',
-                                    'RULE-SET,category-ai@domain,AI',
-                                    'DOMAIN-SUFFIX,cloud.vk.kz,VK',
-                                    'RULE-SET,adlist@domain,REJECT'])
-        self.assertEqual(rules[-1], 'MATCH,DIRECT')
+                                     'DOMAIN-SUFFIX,kimi.ai,DIRECT',
+                                     'RULE-SET,kz-pool@classical,AI',
+                                     'RULE-SET,category-ai@domain,AI',
+                                     'RULE-SET,adlist@domain,REJECT',
+                                     'DOMAIN-SUFFIX,kz,reality-kz'])
+        self.assertEqual(rules[-1], 'MATCH,DIRECT')  # blacklist-политика: вне списков — напрямую
         providers = self.config['rule-providers']
         self.assertEqual(providers['quic@inline']['payload'], ['AND,((DST-PORT,443),(NETWORK,UDP))'])
         self.assertEqual(providers['kz-pool@classical'], {
             'type': 'file', 'behavior': 'classical', 'format': 'text',
             'path': '/opt/etc/mihomo/kz-pool.list'})
-        import re
         targets = set(self.groups) | {p['name'] for p in self.config['proxies']} | {'DIRECT', 'REJECT'}
         for rule in rules:
             self.assertIn(rule.rsplit(',', 1)[-1], targets)
             for provider in re.findall(r'RULE-SET,([^,)]+)', rule):
                 self.assertIn(provider, providers)
 
-    def test_nl_isolation(self):
-        self.assertEqual(self.groups['Fallback']['proxies'], ['reality-home', 'DIRECT'])
-        self.assertEqual(self.groups['Fastest']['proxies'], ['reality-home'])
+    def test_single_node_no_fallback(self):
+        """Однонодовая схема (2026-11-01): только reality-kz, без NL/US/fallback (fail-closed)."""
+        proxies = {p['name'] for p in self.config['proxies']}
+        self.assertEqual(proxies, {'reality-kz'})  # NL удалена полностью, US не осталось
+        for gone in ('Fallback', 'Fastest', 'VK', 'US-Fallback'):
+            self.assertNotIn(gone, self.groups, gone)
+        # Всякая группа — одновариантная [reality-kz]: выбора нод нет, только метки сервисов.
         for name, group in self.groups.items():
-            if name in ('AI', 'Google', 'YouTube', 'Meta', 'VK'):
-                continue
-            self.assertFalse(group.get('include-all'), name)
-            visited = set()
-            def walk(n):
-                if n in visited:
-                    return
-                visited.add(n)
-                self.assertNotIn(n, ('reality-kz', 'reality-us', 'AI'), name)
-                for child in self.groups.get(n, {}).get('proxies', []):
-                    walk(child)
-            walk(name)
-        for name in ('Google', 'YouTube', 'Meta'):
-            self.assertEqual(self.groups[name]['proxies'][0], 'reality-kz')
-        self.assertEqual(self.groups['Заблок. сервисы']['proxies'][0], 'Fallback')
+            self.assertEqual(group['type'], 'select', name)
+            self.assertEqual(group['proxies'], ['reality-kz'], name)
+            for key in ('include-all', 'include-all-proxies', 'include-all-providers', 'use'):
+                self.assertFalse(group.get(key), (name, key))
+        # Нигде в АКТИВНОМ конфиге не осталось ссылок на удалённые ноды (комментарии-история не в счёт).
+        all_names = set(self.groups) | proxies
+        self.assertNotIn('reality-home', all_names)
+        self.assertNotIn('reality-us', all_names)
+        # Никакого автоматического ухода в DIRECT при падении KZ (fail-closed).
+        raw = Path(os.getenv('KZ_CONFIG', ROOT / 'config.yaml.template')).read_text()
+        self.assertNotIn('type: fallback', raw)
+        self.assertNotIn('type: url-test', raw)
 
-    def test_vk_fallback_group(self):
-        vk = self.groups['VK']
-        self.assertEqual(vk['type'], 'fallback')
-        self.assertEqual(vk['proxies'], ['reality-kz', 'DIRECT'])
-        self.assertIn('url', vk)
-
-    def test_us_removed_and_kz_transport(self):
-        self.assertNotIn('us-pool@classical', self.config['rule-providers'])
-        self.assertNotIn('US-Fallback', self.groups)
-        proxies = {p['name']: p for p in self.config['proxies']}
-        self.assertEqual(set(proxies), {'reality-home', 'reality-kz'})
-        kz = proxies['reality-kz']
+    def test_kz_transport(self):
+        kz = {p['name']: p for p in self.config['proxies']}['reality-kz']
         # С 2026-11-01 KZ-нода на Xray-core 26.6.27+ (3x-ui): строго chrome + ML-KEM768
         # (firefox-fp из vless://-ссылки в mihomo не работает — HelloFirefox_120 без ML-KEM).
         for key, value in {'type': 'vless', 'port': 443, 'tls': True,

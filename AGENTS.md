@@ -15,13 +15,28 @@
 
 1. **VPN через VLESS**: XKeen 2.0 (форк JamesZero) на роутере, режим **Hybrid** — основной способ
    обхода блокировок и сплита трафика. Ядро: **Mihomo — основное**, Xray — запасное
-   (переключение `xkeen -mihomo` / `xkeen -xray`). Роутинг — whitelist (см. «Решения»).
+   (переключение `xkeen -mihomo` / `xkeen -xray`; с 2026-11-01 оба ведут на единственную
+   KZ-ноду). Схема однонодовая: списки сервисов + `.kz` — через KZ, всё вне списков — напрямую.
 2. **Сетевое хранилище**: SMB-шара на USB-диске.
 3. **Торрент-клиент**: Transmission в Entware.
 4. Прошивка/обновление KeeneticOS, управление компонентами OPKG, тонкие кастомизации, доступ по SSH.
 
 ## Решения (что делаем)
 
+- **2026-11-01 (этап 2): однонодовая схема — всё проксируемое строго через KZ; NL удалена навсегда.**
+  `reality-home` (NL) удалена из Mihomo и из конфига запасного ядра Xray (`04_outbounds.json`
+  роутера теперь ведёт на KZ, chrome+ML-KEM, проверено живьём); US-VM и NL-VM гасит владелец.
+  Сервисные группы стали одновариантными `[reality-kz]` (метки сервисов для zashboard, выбора
+  нод нет); Fallback/Fastest/VK-группы удалены. **Fallback нет нигде: KZ упала → прокси-трафик
+  падает (fail-closed)** — решение владельца «чиним ноду, а не обходим»; fail-open DIRECT
+  (2026-09-19) отменён. `DOMAIN-SUFFIX,kz → reality-kz` сразу после adlist: все `.kz`-домены
+  через KZ (реклама .kz режется раньше), поглотило отдельное правило/группу cloud.vk.kz.
+  Вне списков — по-прежнему напрямую (MATCH,DIRECT, blacklist-политика, RU не трогаем);
+  kimi.ai DIRECT и QUIC REJECT сохранены. Инертные us-pool.list* с роутера удалены
+  (в репо — исторический снимок). Проверено после hot-reload: в рантайме одна нода,
+  15 групп `[reality-kz]`, delay 128–131 мс. Откат: `backups/20261101-kz-node-replace/`
+  (`config.yaml.reality-nl.bak-*`) или `config.yaml.bak-20261101-pre1node` на роутере → reload.
+  Несовместимость Xray 26.x ↔ mihomo (ML-KEM768) — `xray-problem.md`.
 - **2026-11-01: Смена KZ-ноды cactus-kz → cactus-vk-kz (Reality, сервер на Xray-core 26.6.27).**
   Ссылка с fp=firefox в mihomo не работает («REALITY authentication failed»): XTLS с лета 2026
   требует в ClientHello пост-квантовую группу X25519MLKEM768 (с v26.7.11 — официальная граница
