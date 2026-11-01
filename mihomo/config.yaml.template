@@ -7,15 +7,34 @@
 #   - ВЫРЕЗАНЫ CDN-правила (Cloudflare/Akamai/AWS/DO/OVH/...) — они гнали массу не-заблокированного
 #     трафика (в т.ч. RU-сайты за Cloudflare) через VPS, что противоречит whitelist-логике;
 #   - добавлен secret на external-controller (панель доступна всем LAN-сегментам);
-#   - google/github оставлены с default PASS (DIRECT) — переключаются вручную из панели при нужде;
+#   - GitHub по умолчанию DIRECT; Google позднее переведён на KZ (см. ниже);
 #   - Fallback = [reality-home, DIRECT]: при недоступности VPS whitelist-трафик автоматически
 #     уходит напрямую (fail-open, решение владельца 2026-09-19), при восстановлении — обратно.
 # Логика: whitelist — динамические rule-sets (автообновление 24 ч) + свои DOMAIN-SUFFIX;
 #         всё вне списков — напрямую (MATCH,DIRECT). Игры/UDP вне списков не затрагиваются:
 #         XKeen перехватывает только порты 80/443 (TCP+UDP).
-# Заменить: <VPS_HOST>, <UUID>, <PBK>, <SID>, <SNI>, <PANEL_SECRET>
-# Поля из vless://-ссылки: server=<host>, uuid=<UUID>, pbk=<PBK>, sid=<SID>, sni=<SNI>, fp=chrome,
-# flow=xtls-rprx-vision. Параметр spx (spiderX) в mihomo не используется.
+# Изменения 003 (2026-10-30, docs/specs/003-kz-ai-routing/):
+#   - весь AI + платежи/верификация: AI=[reality-kz], без fallback и DIRECT;
+#   - kz-pool.list: сервисные домены, приоритет выше adlist, но ниже QUIC REJECT;
+#   - основной пул: Fallback=[reality-home, DIRECT]; KZ не участвует в Fastest;
+#   - 2026-10-30 21:19: Google/YouTube/Meta тоже выбраны через KZ для пробы;
+#   - гарантия только для распознанного веб-трафика в перехвате 80/443 (не kill-switch).
+# Изменения 2026-11-01 (смена KZ-ноды, backups/20261101-kz-node-replace/):
+#   - KZ-нода cactus-kz → cactus-vk-kz (Reality). fp из ссылки (firefox) в mihomo НЕ работает
+#     (HelloFirefox_120 без X25519MLKEM768 — utls v1.8.7), поэтому обязательно:
+#     client-fingerprint: chrome + reality-opts.support-x25519mlkem768: true.
+#     Причина: Xray-core на 3x-ui (наш сервер v26.6.27) отвергает ClientHello без ML-KEM;
+#     с v26.7.11 официально несовместим с mihomo, с v26.9.8 — строгий разрыв; mihomo чинить
+#     не будет (MetaCubeX/mihomo#3193 closed not planned). Опция mihomo-специфична,
+#     в vless://-ссылках не передаётся — вписывать руками.
+#   - имя reality-kz СОХРАНЕНО (на него ссылаются группы AI/VK/YouTube/Meta/Google);
+#   - промежуточный вариант WS+TLS удалён по решению владельца (работал, но медленнее);
+#   - reality-home (NL) не менялся.
+# Заменить: <VPS_HOST>, <UUID>, <PBK>, <SID>, <SNI>, <PANEL_SECRET> (NL-нода reality-home)
+#         и <KZ_HOST>, <KZ_UUID>, <KZ_PBK>, <KZ_SID>, <KZ_SNI> (KZ-нода reality-kz)
+# Поля из vless://-ссылки (reality): server=<host>, uuid=<UUID>, pbk=<PBK>, sid=<SID>,
+# sni=<SNI>, flow=xtls-rprx-vision. У KZ fp берём chrome (НЕ firefox из ссылки) и обязательно
+# support-x25519mlkem768: true. Параметр spx (spiderX) в mihomo не используется.
 #######################################################################################################
 
 log-level: warning          # info — для отладки при первичной настройке
@@ -60,12 +79,27 @@ proxies:
       public-key: <PBK>
       short-id: <SID>
 
+  # KZ-нода Reality; с 2026-11-01 строго chrome + support-x25519mlkem768 (см. шапку).
+  - name: reality-kz
+    type: vless
+    server: <KZ_HOST>
+    port: 443
+    udp: true
+    uuid: <KZ_UUID>
+    flow: xtls-rprx-vision
+    tls: true
+    servername: <KZ_SNI>
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: <KZ_PBK>
+      short-id: <KZ_SID>
+      support-x25519mlkem768: true
+
 proxy-groups:
   - name: Заблок. сервисы
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Reject.png
-    include-all: true
-    proxies: [Fallback, Fastest]
+    proxies: [Fallback, Fastest, reality-home]
 
   - name: Fallback
     type: fallback
@@ -75,8 +109,9 @@ proxy-groups:
     max-failed-times: 3
     hidden: true
     proxies: [reality-home, DIRECT] # VPS недоступен (3 провала health-check) → whitelist уходит напрямую (fail-open)
-    # NB: include-all здесь НЕ используем — он дописывает прокси ПОСЛЕ явного списка,
-    # DIRECT оказался бы первым кандидатом и fallback всегда выбирал бы его.
+    # NB: include-all здесь НЕ используем — он дописывает прокси ПОСЛЕ явного списка:
+    # при падении reality-home fallback выбрал бы DIRECT (второй в явном списке) раньше
+    # добавленных нод — дописанные ноды никогда бы не участвовали, всегда fail-open.
 
   - name: Fastest
     type: url-test
@@ -85,91 +120,85 @@ proxy-groups:
     interval: 300
     max-failed-times: 3
     hidden: true
-    include-all: true
+    proxies: [reality-home] # KZ не участвует в выборе основного пула
 
   - name: YouTube
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/YouTube.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [reality-kz, Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home] # проба KZ 2026-10-30
 
   - name: Discord
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Discord.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
 
   - name: Twitch
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Twitch.png
-    include-all: true
-    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # осознанно DIRECT: ключевые домены Twitch проксируются OR-правилом ниже
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest, reality-home] # осознанно DIRECT: ключевые домены Twitch проксируются OR-правилом ниже
 
   - name: Reddit
     type: select
     icon: https://www.redditstatic.com/shreddit/assets/favicon/192x192.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT] # Reddit заблокирован в РФ → через прокси
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home] # Reddit заблокирован в РФ → через прокси
 
   - name: Meta
     type: select
     icon: https://github.com/zxc-rv/assets/raw/main/group-icons/meta.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [reality-kz, Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home] # Instagram/Facebook: проба KZ
 
   - name: Spotify
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Spotify.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
 
   - name: Speedtest
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Speedtest.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
 
   - name: Telegram
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Telegram.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
 
   - name: Steam
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Steam.png
-    include-all: true
-    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # осознанно DIRECT: игры не через VPN
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest, reality-home] # осознанно DIRECT: игры не через VPN
 
   - name: Google
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Google_Search.png
-    include-all: true
-    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # default DIRECT: Google не заблокирован
+    proxies: [reality-kz, DIRECT, Заблок. сервисы, Fallback, Fastest, reality-home] # весь Google: проба KZ
 
   - name: GitHub
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/GitHub.png
-    include-all: true
-    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest] # default DIRECT
+    proxies: [DIRECT, Заблок. сервисы, Fallback, Fastest, reality-home] # default DIRECT
 
   - name: AI
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bot.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [reality-kz] # KZ недоступна → отказ. Других вариантов и include-all здесь быть не должно.
 
   - name: Twitter
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Twitter.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
 
   - name: TikTok
     type: select
     icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TikTok.png
-    include-all: true
-    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT]
+    proxies: [Заблок. сервисы, Fallback, Fastest, DIRECT, reality-home]
+
+  - name: VK
+    type: fallback
+    url: https://www.gstatic.com/generate_204
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/VK.png
+    interval: 60
+    max-failed-times: 3
+    proxies: [reality-kz, DIRECT] # cloud.vk.kz: Казахстан; KZ недоступна (3 провала) → напрямую через провайдера (РФ, 2026-11-01)
 
 rule-providers:
   adlist@domain: { <<: *domain, url: https://github.com/zxc-rv/ad-filter/releases/latest/download/adlist.mrs }
@@ -191,6 +220,11 @@ rule-providers:
   tiktok@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs }
   youtube@domain: { <<: *domain, url: https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs }
   quic@inline: { <<: *inline, payload: ["AND,((DST-PORT,443),(NETWORK,UDP))"] }
+  kz-pool@classical: # Источник истины mihomo/kz-pool.list; правка → копия на роутер → reload провайдера
+    type: file
+    behavior: classical
+    format: text
+    path: /opt/etc/mihomo/kz-pool.list # абсолютный путь под XKeen
   user@classical: # СВОИ ПРАВИЛА — личные домены. Плейсхолдер example.invalid не мешает; свои домены дописывать строками ниже
     <<: *inline
     payload:
@@ -199,10 +233,13 @@ rule-providers:
       # - DOMAIN-SUFFIX,my-service.com
 
 rules:
-  - RULE-SET,adlist@domain,REJECT # Блокировка рекламы (отключите при проблемах с сервисами)
   - RULE-SET,quic@inline,REJECT # Блокировка QUIC (UDP 443) — стабилизирует TCP-прокси; убрать, если помешает
-  - OR,((DOMAIN-SUFFIX,gql.twitch.tv),(DOMAIN-SUFFIX,usher.ttvnw.net)),Заблок. сервисы # Разблокировка качества Twitch (может вызвать рекламу)
+  - DOMAIN-SUFFIX,kimi.ai,DIRECT # Kimi напрямую, минуя AI/KZ (решение владельца 2026-11-01)
+  - RULE-SET,kz-pool@classical,AI # сервисные домены KZ-only, включая платежный антифрод
   - RULE-SET,category-ai@domain,AI
+  - DOMAIN-SUFFIX,cloud.vk.kz,VK # только VK Cloud KZ (сам vk.kz адресов не имеет) — до adlist/refilter
+  - RULE-SET,adlist@domain,REJECT # После AI/платежей/верификации
+  - OR,((DOMAIN-SUFFIX,gql.twitch.tv),(DOMAIN-SUFFIX,usher.ttvnw.net)),Заблок. сервисы # Разблокировка качества Twitch (может вызвать рекламу)
   - RULE-SET,steam@domain,Steam
   - RULE-SET,spotify@domain,Spotify
   - RULE-SET,reddit@domain,Reddit
@@ -214,7 +251,7 @@ rules:
   - RULE-SET,speedtest@domain,Speedtest
   - OR,((RULE-SET,meta@domain),(RULE-SET,meta@ipcidr,no-resolve)),Meta
   - OR,((RULE-SET,telegram@domain),(RULE-SET,telegram@ipcidr,no-resolve)),Telegram
+  - RULE-SET,google@domain,Google # Выше refilter: иначе google.com перехватывается основным NL-пулом
   - OR,((RULE-SET,refilter@domain),(RULE-SET,user@classical)),Заблок. сервисы
   - RULE-SET,github@domain,GitHub
-  - RULE-SET,google@domain,Google
   - MATCH,DIRECT # Всё вне списков (включая игры) — напрямую через провайдера
